@@ -5,23 +5,39 @@ import 'dart:convert';
 import 'map_screen.dart';
 import 'dart:developer';
 import 'package:intl/intl.dart';
+// import 'package:latlong2/latlong.dart';
+import 'dart:math' show asin, cos, sin, sqrt;
 
 class APIService {
   MapScreen mapWidget = const MapScreen();
   List<LatLng>? _cachedRouteCoordinates;
+  // List<Map<String, LatLng>> busStopsLatLng = [
+  //     {'Eagle Rock Stop': const LatLng(38.90254986221832, -104.8146366565121)},
+  //     {'Lot 540 Stop': const LatLng(38.89998202956692, -104.81070532677619)},
+  //     {'Alpine Stop': const LatLng(38.897690997528024, -104.80652117718797)},
+  //     {'Lodge Stop': const LatLng(38.89436248896465, -104.80542674163705)},
+  //     {'Centennial Hall Stop': const LatLng(38.89193096726863, -104.79925147404836)},
+  //     {'University Hall Stop': const LatLng(38.889464319662274, -104.78774864932078)},
+  //     {'Lot 103 Stop': const LatLng(38.888782337417965, -104.79204688588112)},
+  //     {'Centennial Hall Stop': const LatLng(38.89193096726863, -104.79925147404836)},
+  //     {'Lodge Stop': const LatLng(38.89436248896465, -104.80542674163705)},
+  //     {'Alpine Stop': const LatLng(38.897690997528024, -104.80652117718797)},
+  //     {'Lot 540 Stop': const LatLng(38.89998202956692, -104.81070532677619)},
+  //   ];
+
   List<Map<String, LatLng>> busStopsLatLng = [
-      {'Eagle Rock Stop': const LatLng(38.90254986221832, -104.8146366565121)},
-      {'Lot 540 Stop': const LatLng(38.89998202956692, -104.81070532677619)},
-      {'Alpine Stop': const LatLng(38.897690997528024, -104.80652117718797)},
-      {'Lodge Stop': const LatLng(38.89436248896465, -104.80542674163705)},
-      {'Centennial Hall Stop': const LatLng(38.89193096726863, -104.79925147404836)},
-      {'University Hall Stop': const LatLng(38.889464319662274, -104.78774864932078)},
-      {'Lot 103 Stop': const LatLng(38.888782337417965, -104.79204688588112)},
-      {'Centennial Hall Stop': const LatLng(38.89193096726863, -104.79925147404836)},
-      {'Lodge Stop': const LatLng(38.89436248896465, -104.80542674163705)},
-      {'Alpine Stop': const LatLng(38.897690997528024, -104.80652117718797)},
-      {'Lot 540 Stop': const LatLng(38.89998202956692, -104.81070532677619)},
-    ];
+  {'Eagle Rock Stop': LatLng(38.90255, -104.814637)},
+  {'Lot 540 Stop': LatLng(38.899982, -104.810705)},
+  {'Alpine Stop': LatLng(38.897691, -104.806521)},
+  {'Lodge Stop': LatLng(38.894362, -104.805427)},
+  {'Centennial Hall Stop': LatLng(38.891931, -104.799251)},
+  {'University Hall Stop': LatLng(38.889464, -104.787749)},
+  {'Lot 103 Stop': LatLng(38.888782, -104.792047)},
+  {'Centennial Hall Stop': LatLng(38.891931, -104.799251)},
+  {'Lodge Stop': LatLng(38.894362, -104.805427)},
+  {'Alpine Stop': LatLng(38.897691, -104.806521)},
+  {'Lot 540 Stop': LatLng(38.899982, -104.810705)},
+];
 
   Future<dynamic> fetchInitialStateData() async {
   final response = await http.get(Uri.parse(
@@ -64,7 +80,7 @@ Future<List<LatLng>> getRouteCoordinates() async {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         if (data.containsKey('matchings') && data['matchings'].isNotEmpty) {
-          final List<LatLng> snappedCoordinates = [];
+          List<LatLng> snappedCoordinates = [];
           for (final matching in data['matchings']) {
             final List<dynamic> coordinates = matching['geometry']['coordinates'];
             for (final coord in coordinates) {
@@ -72,8 +88,14 @@ Future<List<LatLng>> getRouteCoordinates() async {
               snappedCoordinates.add(snappedCoordinate);
             }
           }
+          // Convert List<Map<String, LatLng>> to List<LatLng>
+          List<LatLng> convertedCoordinates = originalCoordinates
+              .map((map) => map.values.first) // Extract the LatLng from each map
+              .toList();
           _cachedRouteCoordinates = snappedCoordinates;
-          // log(snappedCoordinates.toString());
+          // log('merging coords');
+          List<LatLng> mergedCoordinates= mergeCoordinates(snappedCoordinates, convertedCoordinates);
+          snappedCoordinates = mergedCoordinates;
           return snappedCoordinates;
         } else {
           log('Error: Invalid or missing matchings data');
@@ -90,6 +112,47 @@ Future<List<LatLng>> getRouteCoordinates() async {
     }
   }
 
+List<LatLng> mergeCoordinates(List<LatLng> snappedCoordinates, List<LatLng> originalCoordinates) {
+  List<LatLng> mergedCoordinates = List<LatLng>.from(snappedCoordinates); // Create a copy of snappedCoordinates
+  for (int i = 0; i < originalCoordinates.length; i++) {
+    LatLng originalCoord = originalCoordinates[i];
+    // Find the closest point in snappedCoordinates
+    int closestIndex = 0;
+    double closestDistance = double.infinity;
+    for (int j = 0; j < mergedCoordinates.length; j++) {
+      double distance = distanceBetween(originalCoord, mergedCoordinates[j]);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = j;
+      }
+    }
+    // Insert the original coordinate at the closestIndex in mergedCoordinates
+    mergedCoordinates.insert(closestIndex, originalCoord);
+  }
+  // snappedCoordinates = mergedCoordinates;
+  // log('mergedCoordinates = ${mergedCoordinates.toString()}');
+  return mergedCoordinates;
+}
+
+double distanceBetween(LatLng latLng1, LatLng latLng2) {
+  const double earthRadius = 6371000; // in meters
+
+  double lat1 = latLng1.latitude * (pi / 180);
+  double lon1 = latLng1.longitude * (pi / 180);
+  double lat2 = latLng2.latitude * (pi / 180);
+  double lon2 = latLng2.longitude * (pi / 180);
+
+  double dLat = lat2 - lat1;
+  double dLon = lon2 - lon1;
+
+  double a = sin(dLat / 2) * sin(dLat / 2) +
+      cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
+  double c = 2 * asin(sqrt(a));
+  double distance = earthRadius * c;
+
+  return distance;
+}
+
   // final String apiKey = '7614t1xj1BM7awzGEZe81DnqQrjDzUMG';
   Future<String> getEstimatedArrivalTime(LatLng origin, LatLng destination, {List<LatLng>? waypoints}) async {
     final String apiKey = '7614t1xj1BM7awzGEZe81DnqQrjDzUMG';
@@ -98,6 +161,7 @@ Future<List<LatLng>> getRouteCoordinates() async {
     if (waypoints != null && waypoints.isNotEmpty) {
       final String waypointsString = waypoints.map((point) => 'via=${point.latitude},${point.longitude}').join('&');
       url = '$url&$waypointsString';
+      // log('finalURL = ${url.toString()}');
     }
 
     final response = await http.get(Uri.parse(url));
@@ -114,18 +178,34 @@ Future<List<LatLng>> getRouteCoordinates() async {
 
 List<LatLng> getWaypoints(List<LatLng> snappedRouteCoordinates, LatLng startLatLng, LatLng endLatLng) {
   List<LatLng> waypoints = [];
-  if (snappedRouteCoordinates.isNotEmpty) {
-    waypoints.add(startLatLng);
-    for (LatLng point in snappedRouteCoordinates) {
-      if ((point.latitude > startLatLng.latitude && point.latitude < endLatLng.latitude) &&
-          (point.longitude > startLatLng.longitude && point.longitude < endLatLng.longitude)) {
-        waypoints.add(point);
-      }
+  int startIndex = 0;
+  double closestDistance = double.infinity;
+
+  // Find the index of the closest point to startLatLng
+  for (int i = 0; i < snappedRouteCoordinates.length; i++) {
+    double distance = distanceBetween(startLatLng, snappedRouteCoordinates[i]);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      startIndex = i;
     }
-    waypoints.add(endLatLng);
   }
+
+  // Calculate the step size to get 10 evenly spaced points
+  int stepSize = (snappedRouteCoordinates.length - startIndex) ~/ 10;
+
+  // Add 10 evenly spaced points between the startIndex and endLatLng to waypoints
+  for (int i = startIndex; i < snappedRouteCoordinates.length; i += stepSize) {
+    waypoints.add(snappedRouteCoordinates[i]);
+    if (i + stepSize >= snappedRouteCoordinates.length || snappedRouteCoordinates[i] == endLatLng) {
+      break; // Stop if we have reached the end point or the end of the snappedRouteCoordinates
+    }
+  }
+
   log('returning waypoints=${waypoints.toString()}');
   return waypoints;
 }
+
+
+
 
 }

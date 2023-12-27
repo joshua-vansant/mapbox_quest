@@ -31,7 +31,7 @@ class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
       var t2Waypoints = apiService.getWaypoints(coordinates, tracker2LatLng, selectedStopLatLng);
 
       String t1ETA = await(apiService.getEstimatedArrivalTime(tracker1LatLng, selectedStopLatLng, waypoints: t1Waypoints));
-      String t2ETA = await(apiService.getEstimatedArrivalTime(tracker2LatLng, selectedStopLatLng, waypoints: t1Waypoints));
+      String t2ETA = await(apiService.getEstimatedArrivalTime(tracker2LatLng, selectedStopLatLng, waypoints: t2Waypoints));
       // , t2ETA;
       // Map<String, LatLng> nextStop = apiService.getNextStop(stopLatLng);
       // stopLatLng = nextStop.values.first;
