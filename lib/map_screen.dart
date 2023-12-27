@@ -8,12 +8,21 @@ import 'api_service.dart';
 import 'dart:async';
 import 'my_point_annotation_click_listener.dart';
 
+typedef void AddPolylineCallback(PolylineAnnotationOptions polyline);
+
+
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
+
+  get polylineAnnotationManager => null;
+
   _MapScreenState createState() => _MapScreenState();
+
+
 }
 
 class _MapScreenState extends State<MapScreen> {
+  
   late MapboxMap mapboxMap;
   late PointAnnotationManager pointAnnotationManager;
   late PolylineAnnotationManager polylineAnnotationManager;
@@ -77,6 +86,22 @@ class _MapScreenState extends State<MapScreen> {
   // void initState() {
   //   super.initState();
   // }
+void addPolyline(PolylineAnnotationOptions polyline) {
+  PolylineAnnotation polylineAnnotation = PolylineAnnotation(
+    id: 'etaLine',
+    geometry: polyline.geometry,
+    lineColor: polyline.lineColor,
+    lineWidth: polyline.lineWidth,
+  );
+  polylineAnnotationManager.create(polyline);
+
+  // Schedule the removal of the polyline after 10 seconds
+  Timer(Duration(seconds: 10), () {
+    // Remove the polyline from the map
+    polylineAnnotationManager.deleteAll();
+  });
+}
+
 
 
   @override
@@ -127,7 +152,9 @@ class _MapScreenState extends State<MapScreen> {
 
   void _onMapCreated(MapboxMap mapboxMap, BuildContext context) {
     this.mapboxMap = mapboxMap;
-    myPointAnnotationClickListener = MyPointAnnotationClickListener(context);
+    myPointAnnotationClickListener = MyPointAnnotationClickListener(context, addPolylineCallback: (polyline) {
+        addPolyline(polyline);
+    },);
     this.mapboxMap.gestures.updateSettings(GesturesSettings(
 
         ));
@@ -139,20 +166,28 @@ class _MapScreenState extends State<MapScreen> {
       pointAnnotationManager = value;
       addShuttleStopsToMap(pointAnnotationManager);
       pointAnnotationManager.addOnPointAnnotationClickListener(myPointAnnotationClickListener);
+
       Map<String, dynamic> data = await apiService.fetchInitialStateData();
       getTrackers(data);
     });
     
     this.mapboxMap.annotations.createPolylineAnnotationManager().then((value) async {
       polylineAnnotationManager = value;
-      coordinates = await apiService.getRouteCoordinates();
-      polylineAnnotationManager.create(PolylineAnnotationOptions(
-        geometry: LineString(coordinates: coordinates.map((latLng) =>
-        Position(latLng.longitude, latLng.latitude)).toList()).toJson(),
-        lineColor: Colors.red.value,
-        lineWidth: 5,
-        lineBlur: 5
-      ));
+  //     coordinates = await apiService.getRouteCoordinates();
+  //   PolylineAnnotationOptions polyline = PolylineAnnotationOptions(
+  //   geometry: LineString(coordinates: coordinates.map((latLng) =>
+  //       Position(latLng.longitude, latLng.latitude)).toList()).toJson(),
+  //   lineColor: Colors.red.value,
+  //     lineWidth: 5,
+  // );
+  //     addPolyline(polyline);
+      // polylineAnnotationManager.create(PolylineAnnotationOptions(
+      //   geometry: LineString(coordinates: coordinates.map((latLng) =>
+      //   Position(latLng.longitude, latLng.latitude)).toList()).toJson(),
+      //   lineColor: Colors.red.value,
+      //   lineWidth: 5,
+      //   lineBlur: 5
+      // ));
     }).catchError((e) {
       log('Error creating polyline: $e');
     });
@@ -173,6 +208,8 @@ class _MapScreenState extends State<MapScreen> {
       });
     });
   }
+
+
 
 
   void addShuttleStopsToMap(PointAnnotationManager pointAnnotationManager) async {

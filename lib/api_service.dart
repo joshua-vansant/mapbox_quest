@@ -176,34 +176,57 @@ double distanceBetween(LatLng latLng1, LatLng latLng2) {
     }
   }
 
-List<LatLng> getWaypoints(List<LatLng> snappedRouteCoordinates, LatLng startLatLng, LatLng endLatLng) {
+List<LatLng> getWaypoints(List<LatLng> snappedRouteCoordinates, LatLng startLatLng, LatLng endLatLng, int numberOfWaypoints) {
   List<LatLng> waypoints = [];
   int startIndex = 0;
-  double closestDistance = double.infinity;
+  int endIndex = 0;
+  double closestStartDistance = double.infinity;
+  double closestEndDistance = double.infinity;
 
-  // Find the index of the closest point to startLatLng
+   // Find the index of the closest point to startLatLng and endLatLng
   for (int i = 0; i < snappedRouteCoordinates.length; i++) {
-    double distance = distanceBetween(startLatLng, snappedRouteCoordinates[i]);
-    if (distance < closestDistance) {
-      closestDistance = distance;
+    double startDistance = distanceBetween(startLatLng, snappedRouteCoordinates[i]);
+    double endDistance = distanceBetween(endLatLng, snappedRouteCoordinates[i]);
+    if (startDistance < closestStartDistance) {
+      closestStartDistance = startDistance;
       startIndex = i;
+      log('startIndex in GW = $startIndex');
+    }
+    if (endDistance < closestEndDistance) {
+      closestEndDistance = endDistance;
+      endIndex = i;
+      log('endIndex in GW = $endIndex');
     }
   }
 
-  // Calculate the step size to get 10 evenly spaced points
-  int stepSize = (snappedRouteCoordinates.length - startIndex) ~/ 10;
+  // Calculate the step size to get the desired number of evenly spaced points
+int totalPoints;
+if (startIndex <= endIndex) {
+  totalPoints = endIndex - startIndex;
+} else {
+  totalPoints = snappedRouteCoordinates.length - startIndex + endIndex;
+}
+int stepSize = (totalPoints / (numberOfWaypoints + 1)).round();
 
-  // Add 10 evenly spaced points between the startIndex and endLatLng to waypoints
-  for (int i = startIndex; i < snappedRouteCoordinates.length; i += stepSize) {
-    waypoints.add(snappedRouteCoordinates[i]);
-    if (i + stepSize >= snappedRouteCoordinates.length || snappedRouteCoordinates[i] == endLatLng) {
-      break; // Stop if we have reached the end point or the end of the snappedRouteCoordinates
-    }
+// Add points between the startIndex and endLatLng to waypoints
+int i = startIndex;
+int count = 0;
+while (count < totalPoints) {
+  waypoints.add(snappedRouteCoordinates[i]);
+  i += stepSize;
+  if (i >= snappedRouteCoordinates.length) {
+    i = i - snappedRouteCoordinates.length; // Wrap around to the beginning
   }
+  count += stepSize;
+}
+waypoints.add(endLatLng); // Add the endLatLng
 
-  log('returning waypoints=${waypoints.toString()}');
+
   return waypoints;
 }
+
+
+
 
 
 

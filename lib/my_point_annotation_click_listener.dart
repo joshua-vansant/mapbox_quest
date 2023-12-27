@@ -6,10 +6,13 @@ import 'api_service.dart';
 import 'map_screen.dart';
 
 class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
+    final AddPolylineCallback addPolylineCallback;
   APIService apiService = APIService();
   MapScreen mapWidget = const MapScreen();
   late BuildContext context;
-  MyPointAnnotationClickListener(this.context);
+  MyPointAnnotationClickListener(this.context, {required this.addPolylineCallback});
+
+
   
   @override
   void onPointAnnotationClick(PointAnnotation annotation) async {
@@ -27,8 +30,9 @@ class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
       final t2lng = double.parse(tracker2Value.split(',')[1]);
       tracker2LatLng = LatLng(t2lat, t2lng);
       List<LatLng> coordinates = await apiService.getRouteCoordinates();
-      var t1Waypoints = apiService.getWaypoints(coordinates, tracker1LatLng, selectedStopLatLng);
-      var t2Waypoints = apiService.getWaypoints(coordinates, tracker2LatLng, selectedStopLatLng);
+      var t1Waypoints = apiService.getWaypoints(coordinates, tracker1LatLng, selectedStopLatLng, 10);
+      var t2Waypoints = apiService.getWaypoints(coordinates, tracker2LatLng, selectedStopLatLng, 10);
+      // log('t1Waypoints=${t1Waypoints.toString()}');
 
       String t1ETA = await(apiService.getEstimatedArrivalTime(tracker1LatLng, selectedStopLatLng, waypoints: t1Waypoints));
       String t2ETA = await(apiService.getEstimatedArrivalTime(tracker2LatLng, selectedStopLatLng, waypoints: t2Waypoints));
@@ -44,6 +48,16 @@ class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
       //   t2ETA = value;
       //   log('t2ETA= $t2ETA');
       // },);
+      
+
+    addPolylineCallback(PolylineAnnotationOptions(geometry: LineString(coordinates: t1Waypoints.map((latLng) =>
+          Position(latLng.longitude, latLng.latitude)).toList()).toJson(),
+      lineColor: Colors.red.value,
+        lineWidth: 5,
+    )
+    );
+  
+
 
         showDialog(
           context: context,
@@ -66,4 +80,7 @@ class MyPointAnnotationClickListener extends OnPointAnnotationClickListener {
     );
     
   }
+
+
+
 }
